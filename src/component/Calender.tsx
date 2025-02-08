@@ -9,9 +9,10 @@ const weekdays: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 interface CalendarProps {
   onChange?: (selectedData: [string[], string[]]) => void;
+  range?: { label: string; value: number }[];
 }
 
-const Calendar = ({ onChange }: CalendarProps) => {
+const Calendar = ({ onChange, range }: CalendarProps) => {
   const [isShow, setIsShow] = useState<boolean>(false);
 
   const today: Date = new Date();
@@ -24,13 +25,13 @@ const Calendar = ({ onChange }: CalendarProps) => {
   const weeks: (CalendarDate | null)[][] = generateCalendar(year, month);
 
   const handleDateClick = (date: CalendarDate | null): void => {
-    if (!date || date.disabled) return;
+    if (!date || date?.disabled) return;
 
-    const selectedDate = new Date(year, month, date.day);
+    const selectedDate = new Date(year, month, date?.day);
 
     if (!startDate || (startDate && endDate)) {
       setStartDate(selectedDate);
-      setEndDate(null); // Reset end date when choosing new start date
+      setEndDate(null);
     } else if (selectedDate > startDate) {
       setEndDate(selectedDate);
     }
@@ -55,18 +56,18 @@ const Calendar = ({ onChange }: CalendarProps) => {
     !!(
       startDate &&
       date &&
-      startDate.getDate() === date.day &&
-      startDate.getMonth() === month &&
-      startDate.getFullYear() === year
+      startDate?.getDate() === date?.day &&
+      startDate?.getMonth() === month &&
+      startDate?.getFullYear() === year
     );
 
   const isEnd = (date: CalendarDate | null): boolean =>
     !!(
       endDate &&
       date &&
-      endDate.getDate() === date.day &&
-      endDate.getMonth() === month &&
-      endDate.getFullYear() === year
+      endDate?.getDate() === date.day &&
+      endDate?.getMonth() === month &&
+      endDate?.getFullYear() === year
     );
 
   const isInRange = (date: CalendarDate | null): boolean => {
@@ -79,12 +80,15 @@ const Calendar = ({ onChange }: CalendarProps) => {
     if (!date) return true;
     const currentDate = new Date(year, month, date.day);
 
-    // Disable past dates
-    if (currentDate.getTime() < today.setHours(0, 0, 0, 0)) return true;
+    const allowPast = range?.some((r) => r.value < 0);
 
-    if (startDate && currentDate < startDate) return true;
+    if (!allowPast && currentDate?.getTime() < today?.setHours(0, 0, 0, 0)) {
+      return true;
+    }
 
-    return date.disabled;
+    if (startDate && currentDate < startDate && range) return true;
+
+    return date?.disabled;
   };
 
   const clearDates = () => {
@@ -93,33 +97,59 @@ const Calendar = ({ onChange }: CalendarProps) => {
   };
 
   const handleChange = (): void => {
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) return; // Ensure both dates are set
 
-    // Format start and end dates
+    // Format start and end dates safely
     const selectedRange: string[] = [
-      startDate.toISOString().split("T")[0], // Start Date (YYYY-MM-DD)
-      endDate.toISOString().split("T")[0], // End Date (YYYY-MM-DD)
+      startDate instanceof Date ? startDate?.toISOString().split("T")[0] : "",
+      endDate instanceof Date ? endDate?.toISOString().split("T")[0] : "",
     ];
 
     const weekends: string[] = [];
     const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
-      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
-
+      const dayOfWeek = currentDate?.getDay(); // 0 = Sunday, 6 = Saturday
       if (dayOfWeek === 0 || dayOfWeek === 6) {
-        weekends.push(currentDate.toISOString().split("T")[0]);
+        weekends.push(currentDate?.toISOString()?.split("T")[0]);
       }
-
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate?.setDate(currentDate?.getDate() + 1);
     }
 
     onChange?.([selectedRange, weekends]); // Invoke callback with formatted array
   };
 
-  useEffect(() => {
+  const handleDone = () => {
     handleChange();
-  }, [startDate, endDate]);
+
+    setIsShow((prev) => !prev);
+  };
+
+  const handleRange = (value: number) => {
+    const today = new Date();
+    const newDate = new Date(today);
+    let count = 0;
+
+    while (count < Math.abs(value)) {
+      newDate.setDate(newDate?.getDate() + (value > 0 ? 1 : -1));
+      const dayOfWeek = newDate?.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count++;
+      }
+    }
+
+    if (value < 0) {
+      setStartDate(newDate);
+      setEndDate(today);
+    } else {
+      setStartDate(today);
+      setEndDate(newDate);
+    }
+
+    // Update the calendar view to focus on the start date
+    setYear(newDate.getFullYear());
+    setMonth(newDate.getMonth());
+  };
 
   return (
     <div className="text-center font-mulish">
@@ -131,8 +161,8 @@ const Calendar = ({ onChange }: CalendarProps) => {
           <FaCalendarDays className="text-gray-400" />
 
           <div className="text-sm tracking-wide text-gray-600">
-            {startDate ? startDate.toDateString() : "dd/mm/yy"} -{" "}
-            {endDate ? endDate.toDateString() : "dd/mm/yy"}
+            {startDate ? startDate?.toDateString() : "dd/mm/yy"} -{" "}
+            {endDate ? endDate?.toDateString() : "dd/mm/yy"}
           </div>
         </div>
 
@@ -144,7 +174,7 @@ const Calendar = ({ onChange }: CalendarProps) => {
       </button>
 
       {isShow && (
-        <div className="relative top-4 p-4 shadow-lg border border-gray-200  rounded-lg ">
+        <div className="relative top-4 p-4 shadow-lg border border-gray-200  rounded-lg w-[400px]">
           {/* Month & Year Navigation */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 font-semibold text-base">
@@ -240,7 +270,19 @@ const Calendar = ({ onChange }: CalendarProps) => {
           <div className="flex items-center justify-center gap-6 px-4 pt-4 border-t border-gray-300">
             <Button bg="bg-gray-400" text="Clear" setIsShow={clearDates} />
 
-            <Button bg="bg-blue-400" text="Done" setIsShow={setIsShow} />
+            <Button bg="bg-blue-400" text="Done" setIsShow={handleDone} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mt-6">
+            {range?.map((rangeItem, i) => (
+              <button
+                key={i}
+                onClick={() => handleRange(rangeItem.value)}
+                className="bg-blue-400 px-2 py-1 rounded-lg text-xs text-blue-50 capitalize cursor-pointer"
+              >
+                {rangeItem.label}
+              </button>
+            ))}
           </div>
         </div>
       )}

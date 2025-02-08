@@ -8,10 +8,27 @@ const handleDateSelection = ([selectedRange, weekends]: [
   console.log("Weekends:", weekends);
 };
 
+const preDefined = [
+  {
+    label: "next 7 days",
+    value: 7,
+  },
+
+  {
+    label: "next 5 days",
+    value: 5,
+  },
+
+  {
+    label: "past 5 days",
+    value: -5,
+  },
+];
+
 const App = () => {
   return (
     <div className="flex justify-center mt- h-screen mt-8">
-      <Calender onChange={handleDateSelection} preDefinedRange="this week" />
+      <Calender onChange={handleDateSelection} range={preDefined} />
     </div>
   );
 };
